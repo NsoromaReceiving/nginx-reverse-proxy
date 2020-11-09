@@ -1,0 +1,81 @@
+version: '3'
+services:
+
+
+  watchtower:
+    image: v2tec/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/nsoromauser/.docker/config.json:/config.json
+    command: --interval 30
+    networks:
+      - nsoroma-tracker-monitoring
+
+  tracker-monitoring-eureka-server:
+    container_name: tracker-monitoring-eureka-server
+    image: hawkmanlabs/tracker-monitoring-eureka-server:stable
+    ports:
+      - 8080:8080
+    networks:
+      - nsoroma-tracker-monitoring
+
+  nsoroma-tracker-monitoring-service:
+    container_name: nsoroma-tracker-monitoring-service
+    image: hawkmanlabs/nsoroma-tracker-monitoring-service:stable
+    ports:
+      - 1300:1300
+    depends_on:
+      - tracker-monitoring-eureka-server
+      - mongo
+    networks:
+      - nsoroma-tracker-monitoring
+
+  tracker-monitoring-scheduler:
+    container_name: tracker-monitoring-scheduler
+    image: hawkmanlabs/tracker-monitoring-scheduler:stable
+    ports:
+      - 9000:9000
+    depends_on:
+      - tracker-monitoring-eureka-server
+    environment:
+      - JAVA_OPTS=${DATABASE}
+    networks:
+      - nsoroma-tracker-monitoring
+
+  tracker-monitoring-template:
+    container_name: tracker-monitoring-template
+ image: hawkmanlabs/tracker-monitoring-template:stable
+    ports:
+      - 4200:4200
+    depends_on:
+      - tracker-monitoring-eureka-server
+    networks:
+      - nsoroma-tracker-monitoring
+
+  tracker-monitoring-nginx-proxy:
+    container_name: tracker-monitoring-nginx-proxy
+    image: hawkmanlabs/tracker-mointoring-nginx-proxy:stable
+    ports:
+      - 80:80
+    depends_on:
+      - tracker-monitoring-template
+      - tracker-monitroing-identity-frontend
+      - nsoroma-tracker-monitoring-identity-service
+      - nsoroma-tracker-monitoring-service
+    networks:
+      - nsoroma-tracker-monitoring
+
+  mongo:
+    image: mongo
+    container_name: mongocontainer
+    volumes:
+      - $HOME/data/mongocontainer-data:/data/db
+      - $HOME/data/mongocontainer-bkp:/data/bkp
+    restart: always
+    networks:
+      - nsoroma-tracker-monitoring
+
+#defining networks
+
+networks:
+  nsoroma-tracker-monitoring:
